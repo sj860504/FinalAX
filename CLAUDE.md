@@ -24,7 +24,13 @@
 - **프론트엔드**: React 18 · Vite · TypeScript · Tailwind CSS · TanStack Query(서버 상태) · react-router. 패키지 매니저 `pnpm`.
 - **폴더 구조**
   ```
-  backend/app/{main.py, api/, models/, schemas/, services/, db.py}
+  backend/app/{main.py, db.py}
+  backend/app/api/           ← Router: 요청 검증 → 서비스 호출 → 응답
+  backend/app/schemas/       ← Pydantic 요청/응답 스키마 (계약 문서와 1:1)
+  backend/app/models/        ← SQLAlchemy 모델
+  backend/app/repositories/  ← DB 접근은 여기서만 (Repository 패턴)
+  backend/app/services/      ← 비즈니스 로직. 리포지토리만 호출
+  backend/app/helpers/       ← 두 곳 이상에서 쓰는 공통 함수
   backend/tests/
   frontend/src/{pages/, components/, api/, mocks/, types/}
   shared/api-contract.md      ← API 계약 (진실의 원천)
@@ -79,6 +85,7 @@
 - 모든 API 계약은 `shared/api-contract.md`(또는 `shared/openapi.yaml`)에 정의한다. **이 문서가 진실이다.**
 - 계약 변경은 공동 영역 규칙(PR + 상대 승인). 변경 시 상대에게 이슈로 알린다.
 - 프론트는 백엔드가 준비될 때까지 `frontend/mocks/`의 mock 데이터로 개발한다. mock은 계약 문서와 형식이 같아야 한다.
+- 목록 API는 한 번에 **20~100개**(`limit` 기본 20, 최대 100)만 내려준다. 전체를 한 번에 내리지 않는다. 프론트는 TanStack Query 캐시(`queryKey`에 `offset`/`limit` 포함, `placeholderData: keepPreviousData`)로 페이징을 처리한다.
 - 백엔드는 계약에 있는 응답 형식을 임의로 바꾸지 않는다. 필드 추가는 OK, 삭제·이름 변경은 계약 수정 먼저.
 - 포트 고정: 프론트 `5173`(Vite), 백엔드 `8000`. 프론트는 `VITE_API_BASE_URL`로만 백엔드를 호출하고 URL을 하드코딩하지 않는다.
 - 백엔드 CORS는 `http://localhost:5173` 허용. 에러 응답은 항상 `{ "detail": string }` 형식(FastAPI 기본)을 유지한다.
@@ -139,3 +146,31 @@
 - 데모 시나리오는 `docs/demo/scenario.md`에 화면 순서대로 고정. 여기 없는 기능은 만들지 않는다.
 - 개발 중 스크린샷은 `docs/demo/screenshots/`에 계속 모은다 (발표자료 재료).
 - 마지막 2시간에 Claude가 대규모 리팩터링을 제안하면 거절한다.
+
+---
+
+## 9. 백엔드 코딩 규칙
+
+- **계층 분리**: Router(`api/`) → Service(`services/`) → Repository(`repositories/`) → Model(`models/`). 요청/응답은 Schema(`schemas/`). 라우터는 서비스만, 서비스는 리포지토리만 호출한다. 계층을 건너뛰지 않는다.
+- **함수 하나 = 관심사 하나.** 한 함수가 조회·계산·저장을 같이 하면 쪼갠다. 함수 이름은 하는 일 하나를 말한다.
+- **공통 함수는 `helpers/`로 분리.** 두 곳 이상에서 쓰면 헬퍼. 헬퍼에는 비즈니스 로직과 DB 접근을 넣지 않는다.
+- **DB 접근은 리포지토리 패턴만.** 라우터·서비스·헬퍼에서 `session.execute`/`query`를 직접 쓰지 않는다. 리포지토리 함수는 세션을 인자로 받고, 커밋은 서비스가 한다.
+- **DB 락 방지 (SQLite).** 트랜잭션은 짧게, 즉시 커밋. 외부 AI 호출·파일 I/O 같은 느린 작업 중에 세션을 열어두지 않는다(먼저 읽고 → 세션 닫고 → 느린 작업 → 새 세션으로 저장). 쓰기 요청은 한 트랜잭션에 한 번에. `check_same_thread=False`와 요청당 세션 하나(`get_db`)를 유지한다.
+- **목록은 20~100개 단위.** `limit`(기본 20, 최대 100), `offset`으로 페이징. `total`은 별도 `count` 쿼리 한 번. 프론트 캐시가 페이징을 담당한다(4항).
+- **N+1 금지.** 루프 안에서 쿼리하지 않는다. 연관 데이터는 `selectinload`/`joinedload` 또는 `IN` 조회 한 번으로 가져온다. 코드 리뷰(검증 에이전트)에서 루프 내 리포지토리 호출은 FAIL이다.
+
+---
+
+## 10. 멀티에이전트 작업 방식 (기본)
+
+모든 사용자 요청과 GitHub 이슈는 아래 세 역할로 나눠 처리한다. 작은 요청이라도 이 흐름을 따른다.
+
+| 역할 | 모델 | 하는 일 | 하지 않는 일 |
+|---|---|---|---|
+| **플래너 (메인 세션)** | Fable 5.1 | 이슈·요청 읽기 → 소유 경계·범위 확인 → 바꿀 파일 목록과 계획 작성 → 구현 에이전트 호출 → 완료되면 검증 에이전트 호출 → 결과 종합해 사용자에게 보고 | 직접 코드 수정 |
+| **구현 에이전트** `implementer` | Opus 5 | 계획대로 이슈 범위 안에서만 구현, 잘게 커밋 | 검증(서버 띄워 확인, 테스트 판단), 범위 밖 개선 |
+| **검증 에이전트** `validator` | Opus 5 | 실제 실행·curl·빌드·테스트로 완료 조건 확인, 규칙 위반 점검, PASS/FAIL 보고 | 코드 수정 |
+
+- 에이전트 정의는 `.claude/agents/implementer.md`, `.claude/agents/validator.md`. 메인은 `Agent` 도구로 `subagent_type: "implementer"` / `"validator"`를 호출한다.
+- 검증 FAIL이면 플래너가 실패 목록을 구현 에이전트에게 다시 넘긴다. 2회 반복 후에도 FAIL이면 사용자에게 알린다.
+- 플래너가 직접 고치는 건 오타·한 줄 설정 같은 사용자가 명시적으로 "직접 해"라고 한 경우만.
