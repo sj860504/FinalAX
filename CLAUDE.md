@@ -48,7 +48,7 @@
   data/                       ← SQLite 파일, 시드 데이터 (db 파일은 gitignore)
   docs/demo/{scenario.md, screenshots/}
   ```
-- 프론트 `frontend/src/types/api.ts`는 계약 문서의 스키마를 그대로 옮긴 타입. 계약이 바뀌면 이 파일과 `backend/app/schemas/`를 같은 PR에서 고친다.
+- 프론트 `frontend/src/types/api.ts`는 계약 문서의 스키마를 그대로 옮긴 타입. 계약이 바뀌면 제안자가 자기 쪽(`types/api.ts` 또는 `schemas/`)을 계약과 같은 PR 에서 고치고, 상대 쪽은 변경 노트로 적용한다(4항).
 
 ### Claude가 지켜야 할 소유 규칙
 - 현재 이슈의 담당자가 소유하지 않은 폴더의 파일은 **읽기만** 한다. 수정·생성·삭제 금지.
@@ -94,7 +94,7 @@
 ## 4. 프론트 ↔ 백엔드 계약
 
 - 모든 API 계약은 `shared/api-contract.md`(또는 `shared/openapi.yaml`)에 정의한다. **이 문서가 진실이다.**
-- 계약 변경은 공동 영역 규칙(PR + 상대 승인). 변경 시 상대에게 이슈로 알린다.
+- 계약 변경은 `/contract-change` 로: 계약 수정 + 변경 노트 `shared/changes/<slug>.<ts>.md` + 제안자 쪽 코드 반영을 한 PR(상대 승인) + 상대에게 `[요청]` 이슈. 상대는 `/contract-sync` 로 자기 마커(`shared/changes/.applied-<쪽>`) 이후 노트만 적용하고 마커를 올린다. 마커·노트 체크박스 갱신은 승인 면제.
 - 프론트는 백엔드가 준비될 때까지 `frontend/mocks/`의 mock 데이터로 개발한다. mock은 계약 문서와 형식이 같아야 한다.
 - 목록 API는 한 번에 **20~100개**(`limit` 기본 20, 최대 100)만 내려준다. 전체를 한 번에 내리지 않는다. 프론트는 TanStack Query 캐시(`queryKey`에 `offset`/`limit` 포함, `placeholderData: keepPreviousData`)로 페이징을 처리한다.
 - 백엔드는 계약에 있는 응답 형식을 임의로 바꾸지 않는다. 필드 추가는 OK, 삭제·이름 변경은 계약 수정 먼저.
