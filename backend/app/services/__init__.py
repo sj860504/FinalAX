@@ -1,1 +1,1 @@
-"""Service 계층: 비즈니스 로직. DB는 repositories/ 를 통해서만 접근한다."""
+"""Service 계층(비즈니스 로직). services/<domain>/ 아래. 리포지토리만 호출하고 DB 를 직접 만지지 않는다."""
