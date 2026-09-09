@@ -10,4 +10,3 @@ CLAUDE.md, `.claude/rules/`, and the agent and skill files are loaded into every
 - Do not record alternatives that were considered and rejected, the history of how a decision was reached, or explanatory background.
 - If a decision only narrows an existing rule, edit the existing line instead of adding a new one.
 - When the user rejects an approach, delete any mention of it that was already written rather than turning it into a prohibition line.
-- Keep private memory files short in the same way.
