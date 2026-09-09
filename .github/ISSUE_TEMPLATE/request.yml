@@ -1,0 +1,44 @@
+name: "[요청] / [블로커] 상대 영역에 요청"
+description: 다른 담당자 폴더의 문제. 직접 고치지 않고 이슈로 넘긴다.
+title: "[요청] "
+labels: [request]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: 문제가 난 영역 (라벨도 같이 붙일 것)
+      options: [backend, frontend, shared]
+    validations: { required: true }
+  - type: dropdown
+    id: blocking
+    attributes:
+      label: 지금 막혔나
+      description: 막혔으면 제목을 [블로커]로 바꾸고 blocker 라벨 추가
+      options: ["아니오 (진행은 됨)", "예 (진행 불가)"]
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes:
+      label: 재현
+      description: 화면 순서 2~4단계 또는 curl 한 줄 + 실제 응답 원문
+      render: shell
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 (shared/api-contract.md 기준)
+    validations: { required: true }
+  - type: textarea
+    id: impact
+    attributes:
+      label: 영향 · 우회
+      value: |
+        - 데모 시나리오: # 단계
+        - 우회: VITE_USE_MOCK=true / 불가
+  - type: textarea
+    id: done
+    attributes:
+      label: 완료 조건
+      value: |
+        - [ ] 
+    validations: { required: true }
