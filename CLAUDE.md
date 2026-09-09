@@ -11,6 +11,7 @@
   cp .claude/rules/*.md ~/.claude/projects/-Users-<사용자>-orca-FinalAX-FinalAX/memory/
   ```
 - 새 규칙이 생기면 로컬 메모리에만 쓰지 말고 `.claude/rules/`에 파일로 만들어 **같은 커밋에 넣는다.** 이 파일(CLAUDE.md)에는 요약만 적는다.
+- **규칙 파일은 짧게.** 이 파일과 `.claude/rules/`, 에이전트·스킬 파일은 매 세션 컨텍스트에 실린다. 해야 할 것과 하지 말 것만 적는다. 검토했다가 버린 대안, 결정 경위, 배경 설명은 넣지 않고, 이미 적혔으면 지운다.
 
 ## 0. 한 줄 요약
 
@@ -57,7 +58,7 @@
 
 ---
 
-## 2. 이슈 = 작업 단위 (Orca / GitHub Issues)
+## 2. 이슈 = 작업 단위 (GitHub Issues)
 
 ### 이슈 규칙
 - 모든 작업은 이슈로 시작한다. **이슈 없는 커밋 금지.**
@@ -183,7 +184,6 @@
 | **검증 에이전트** `validator` | Opus 5 | 실제 실행·curl·빌드·테스트로 완료 조건 확인, 규칙 위반 점검, PASS/FAIL 보고 | 코드 수정 |
 
 - 에이전트 정의는 `.claude/agents/implementer.md`, `.claude/agents/validator.md`. 메인은 `Agent` 도구로 `subagent_type: "implementer"` / `"validator"`를 호출한다.
-- 서브에이전트는 **Claude Code 내장 `Agent` 도구로만** 띄운다. Orca 터미널 워커(`orca orchestration worker-start`)는 쓰지 않는다(팀 결정). 모델은 에이전트 파일의 `model: opus`가 강제하며, 메인 세션은 Fable 5.1로 실행한다.
 - 검증 FAIL이면 플래너가 실패 목록을 구현 에이전트에게 다시 넘긴다. 2회 반복 후에도 FAIL이면 사용자에게 알린다.
 - 플래너가 직접 고치는 건 오타·한 줄 설정 같은 사용자가 명시적으로 "직접 해"라고 한 경우만.
 

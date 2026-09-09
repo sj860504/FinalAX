@@ -16,6 +16,4 @@ The three rules they stated:
 2. Every user request and every GitHub issue is implemented by a subagent running Opus 5 (`model: "opus"` on the Agent tool). The implementer subagent only fixes the issue; it does not verify its own work.
 3. When the implementer finishes, the main session launches a separate Validation agent that runs the code, tests, and checks the acceptance criteria, then reports back.
 
-The user considered and rejected running subagents as Orca terminal workers (`orca orchestration worker-start`). Subagents are always launched with Claude Code's built-in Agent tool inside the main session, never as Orca workers, even for parallel issues.
-
 The reason is separation of duties: the person who writes the code should not be the one who signs off on it, and the main context should stay small and focused on planning. If a request is trivially small, still follow the pattern rather than doing it inline unless the user explicitly says otherwise.
