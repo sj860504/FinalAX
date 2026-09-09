@@ -24,7 +24,7 @@
 |---|---|---|
 | `@sj860504` | 백엔드 (FastAPI) · DB · AI/데이터 | `backend/`, `data/`, `scripts/` |
 | `@팀원ID` | 프론트엔드 (React) · 데모 흐름 · 발표자료 | `frontend/`, `docs/demo/` |
-| 공동 (PR 필수, 상대 승인) | 계약 · 설정 · 루트 | `shared/`, `CLAUDE.md`, `README.md`, `.env.example`, `docker-compose.yml`, CI |
+| 공동 (PR 필수, 상대 승인) | 계약 · 설정 · 루트 · 배포 | `shared/`, `CLAUDE.md`, `README.md`, `.env.example`, `Dockerfile`, `.dockerignore`, `.github/`, `.claude/` |
 
 > `@팀원ID`를 실제 GitHub ID로 바꿀 것. 역할을 서로 바꾸면 폴더도 함께 바꾼다. 이 표가 곧 경계다.
 
@@ -34,13 +34,14 @@
 - **폴더 구조**
   ```
   backend/app/{main.py, db.py}
-  backend/app/api/           ← Router: 요청 검증 → 서비스 호출 → 응답
-  backend/app/schemas/       ← Pydantic 요청/응답 스키마 (계약 문서와 1:1)
-  backend/app/models/        ← SQLAlchemy 모델
-  backend/app/repositories/  ← DB 접근은 여기서만 (Repository 패턴)
-  backend/app/services/      ← 비즈니스 로직. 리포지토리만 호출
-  backend/app/helpers/       ← 두 곳 이상에서 쓰는 공통 함수
+  backend/app/common/                 ← 두 곳 이상에서 쓰는 공통 함수 (계층 아님)
+  backend/app/api/<domain>/router.py          ← Router: 요청 검증 → 서비스 호출 → 응답
+  backend/app/schemas/<domain>/*.py           ← Pydantic 요청/응답 스키마 (계약 문서와 1:1)
+  backend/app/models/<domain>/*.py            ← SQLAlchemy 모델
+  backend/app/repositories/<domain>/*.py      ← DB 접근은 여기서만 (Repository 패턴)
+  backend/app/services/<domain>/*.py          ← 비즈니스 로직. 리포지토리만 호출
   backend/tests/
+  # <domain> = items, analyze, health … 계층 폴더 바로 아래에 .py 를 두지 않고 반드시 도메인 폴더로 묶는다
   frontend/src/{pages/, components/, api/, mocks/, types/}
   shared/api-contract.md      ← API 계약 (진실의 원천)
   data/                       ← SQLite 파일, 시드 데이터 (db 파일은 gitignore)
@@ -162,7 +163,8 @@
 
 - **계층 분리**: Router(`api/`) → Service(`services/`) → Repository(`repositories/`) → Model(`models/`). 요청/응답은 Schema(`schemas/`). 라우터는 서비스만, 서비스는 리포지토리만 호출한다. 계층을 건너뛰지 않는다.
 - **함수 하나 = 관심사 하나.** 한 함수가 조회·계산·저장을 같이 하면 쪼갠다. 함수 이름은 하는 일 하나를 말한다.
-- **공통 함수는 `helpers/`로 분리.** 두 곳 이상에서 쓰면 헬퍼. 헬퍼에는 비즈니스 로직과 DB 접근을 넣지 않는다.
+- **도메인별로 한 번 더 묶는다.** 모든 계층 폴더(`api/ schemas/ models/ repositories/ services/`) 바로 아래에는 코드 파일을 두지 않고 `<계층>/<도메인>/` 하위 패키지로 묶는다(예: `api/items/router.py`, `services/items/service.py`, `repositories/items/repository.py`). 새 엔드포인트를 추가할 때는 관련 계층마다 같은 도메인 폴더를 만든다.
+- **공통 함수는 `common/`으로 분리.** 두 곳 이상의 도메인에서 쓰면 `app/common/`. 계층이 아니므로 `services/` 안에 두지 않는다. 비즈니스 로직과 DB 접근을 넣지 않는다.
 - **DB 접근은 리포지토리 패턴만.** 라우터·서비스·헬퍼에서 `session.execute`/`query`를 직접 쓰지 않는다. 리포지토리 함수는 세션을 인자로 받고, 커밋은 서비스가 한다.
 - **DB 락 방지 (SQLite).** 트랜잭션은 짧게, 즉시 커밋. 외부 AI 호출·파일 I/O 같은 느린 작업 중에 세션을 열어두지 않는다(먼저 읽고 → 세션 닫고 → 느린 작업 → 새 세션으로 저장). 쓰기 요청은 한 트랜잭션에 한 번에. `check_same_thread=False`와 요청당 세션 하나(`get_db`)를 유지한다.
 - **목록은 20~100개 단위.** `limit`(기본 20, 최대 100), `offset`으로 페이징. `total`은 별도 `count` 쿼리 한 번. 프론트 캐시가 페이징을 담당한다(4항).
@@ -183,3 +185,14 @@
 - 에이전트 정의는 `.claude/agents/implementer.md`, `.claude/agents/validator.md`. 메인은 `Agent` 도구로 `subagent_type: "implementer"` / `"validator"`를 호출한다.
 - 검증 FAIL이면 플래너가 실패 목록을 구현 에이전트에게 다시 넘긴다. 2회 반복 후에도 FAIL이면 사용자에게 알린다.
 - 플래너가 직접 고치는 건 오타·한 줄 설정 같은 사용자가 명시적으로 "직접 해"라고 한 경우만.
+
+---
+
+## 11. 배포 (Hugging Face Space)
+
+- 앱은 **Hugging Face Space(Docker)** 한 곳에 뜬다. `Dockerfile` 이 프론트를 빌드해 FastAPI 가 `/`(정적)과 `/api/*`, `/health` 를 **같은 origin, 7860 포트**에서 서빙한다. 프론트 빌드 시 `VITE_API_BASE_URL` 은 빈 값(상대 경로).
+- **머지 = 배포.** `main` 에 머지되면 `.github/workflows/deploy-hf.yml` 이 Space 로 푸시하고 Space 가 다시 빌드한다. Space 에 직접 푸시하거나 Space UI 에서 파일을 고치지 않는다.
+- 흐름: 이슈 → 로컬 브랜치에서 해결 → PR → (검증 에이전트 PASS) → 머지 → 1~3분 후 Space 반영 → 팀원 둘이 Space URL 에서 함께 확인. 배포 확인 없이 "머지했으니 됐다"고 하지 않는다.
+- Space 의 SQLite 는 재시작 시 초기화된다. 데모에 필요한 데이터는 시드 스크립트(`backend/app/db.py` 의 `init_db` 이후)로 넣는다. 영구 저장이 필요해지면 그때 논의.
+- 배포가 깨지면: Actions 로그 → Space "Logs" 탭 순으로 본다. `Dockerfile` 수정은 공동 영역(상대 승인). 로컬에 Docker 가 있으면 `docker build -t finalax . && docker run -p 7860:7860 finalax` 로 먼저 재현.
+- 시크릿은 GitHub Secrets(`HF_TOKEN`, `HF_SPACE`)와 Space Settings › Variables 에만 둔다. 레포에 넣지 않는다.

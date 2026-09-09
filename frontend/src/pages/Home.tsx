@@ -23,7 +23,7 @@ export default function Home() {
           {badge.text}
         </span>
         <span className="text-sm text-gray-500">
-          {USE_MOCK ? "mock 모드" : API_BASE_URL || "(VITE_API_BASE_URL 미설정)"}
+          {USE_MOCK ? "mock 모드" : API_BASE_URL || "같은 origin"}
         </span>
       </div>
       {health.isError && (
