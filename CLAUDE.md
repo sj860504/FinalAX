@@ -13,11 +13,25 @@
 
 | 담당자 (GitHub ID) | 역할 | 소유 폴더 (여기만 수정 가능) |
 |---|---|---|
-| `@담당자A` | 프론트엔드 · 데모 흐름 · 발표자료 | `frontend/`, `docs/demo/` |
-| `@담당자B` | 백엔드 · AI/모델 · 데이터 | `backend/`, `data/`, `scripts/` |
-| 공동 (PR 필수, 상대 승인) | 계약 · 설정 · 루트 | `shared/`, `CLAUDE.md`, `README.md`, 루트 설정 파일(`package.json`, `pyproject.toml`, `.env.example`, CI 등) |
+| `@sj860504` | 백엔드 (FastAPI) · DB · AI/데이터 | `backend/`, `data/`, `scripts/` |
+| `@팀원ID` | 프론트엔드 (React) · 데모 흐름 · 발표자료 | `frontend/`, `docs/demo/` |
+| 공동 (PR 필수, 상대 승인) | 계약 · 설정 · 루트 | `shared/`, `CLAUDE.md`, `README.md`, `.env.example`, `docker-compose.yml`, CI |
 
-> 시작 전에 위 표의 ID와 폴더명을 실제 값으로 바꿀 것. 이 표가 곧 경계다.
+> `@팀원ID`를 실제 GitHub ID로 바꿀 것. 역할을 서로 바꾸면 폴더도 함께 바꾼다. 이 표가 곧 경계다.
+
+### 기술 스택 (변경은 공동 영역)
+- **백엔드**: Python 3.12 · FastAPI · SQLAlchemy 2.x · Pydantic v2 · SQLite(개발/데모, 파일 `data/app.db`). Postgres 전환은 데모에 필요할 때만.
+- **프론트엔드**: React 18 · Vite · TypeScript · Tailwind CSS · TanStack Query(서버 상태) · react-router. 패키지 매니저 `pnpm`.
+- **폴더 구조**
+  ```
+  backend/app/{main.py, api/, models/, schemas/, services/, db.py}
+  backend/tests/
+  frontend/src/{pages/, components/, api/, mocks/, types/}
+  shared/api-contract.md      ← API 계약 (진실의 원천)
+  data/                       ← SQLite 파일, 시드 데이터 (db 파일은 gitignore)
+  docs/demo/{scenario.md, screenshots/}
+  ```
+- 프론트 `frontend/src/types/api.ts`는 계약 문서의 스키마를 그대로 옮긴 타입. 계약이 바뀌면 이 파일과 `backend/app/schemas/`를 같은 PR에서 고친다.
 
 ### Claude가 지켜야 할 소유 규칙
 - 현재 이슈의 담당자가 소유하지 않은 폴더의 파일은 **읽기만** 한다. 수정·생성·삭제 금지.
@@ -33,7 +47,6 @@
 - 모든 작업은 이슈로 시작한다. **이슈 없는 커밋 금지.**
 - 이슈에는 반드시: 담당자 1명, 라벨(`frontend` / `backend` / `shared` / `demo`), 완료 조건(체크박스) 포함.
 - 크기: **한 이슈는 2시간 안에 끝나는 크기.** 넘으면 쪼갠다.
-- 한 사람이 동시에 `In Progress`인 이슈는 최대 2개.
 - 제목 형식: `[영역] 동사로 시작하는 한 문장` — 예: `[backend] /api/analyze 엔드포인트 구현`
 
 ### Claude가 이슈를 다룰 때
@@ -67,13 +80,16 @@
 - 계약 변경은 공동 영역 규칙(PR + 상대 승인). 변경 시 상대에게 이슈로 알린다.
 - 프론트는 백엔드가 준비될 때까지 `frontend/mocks/`의 mock 데이터로 개발한다. mock은 계약 문서와 형식이 같아야 한다.
 - 백엔드는 계약에 있는 응답 형식을 임의로 바꾸지 않는다. 필드 추가는 OK, 삭제·이름 변경은 계약 수정 먼저.
-- 포트/주소는 `.env.example`에 고정: 프론트 `3000`, 백엔드 `8000` (실제 값으로 수정).
+- 포트 고정: 프론트 `5173`(Vite), 백엔드 `8000`. 프론트는 `VITE_API_BASE_URL`로만 백엔드를 호출하고 URL을 하드코딩하지 않는다.
+- 백엔드 CORS는 `http://localhost:5173` 허용. 에러 응답은 항상 `{ "detail": string }` 형식(FastAPI 기본)을 유지한다.
 
 ---
 
 ## 5. 실행 환경 · 도구 규칙
 
-- 의존성 추가는 해당 영역 소유자만. 루트 의존성은 공동 영역.
+- 의존성 추가는 해당 영역 소유자만: 백엔드 `backend/requirements.txt`, 프론트 `frontend/package.json`. 루트 의존성은 만들지 않는다.
+- 실행 명령은 고정: 백엔드 `uvicorn app.main:app --reload --port 8000` (backend/에서), 프론트 `pnpm dev` (frontend/에서). Claude는 다른 실행 방식을 도입하지 않는다.
+- DB 스키마 변경은 `backend/app/models/` 수정 + 시작 시 `create_all`로 처리. 해커톤 중 Alembic 마이그레이션은 도입하지 않는다. 스키마가 깨지면 `data/app.db`를 지우고 시드를 다시 돌린다(사용자 확인 후).
 - 새 라이브러리를 넣기 전 이미 있는 것으로 가능한지 먼저 확인한다.
 - 포맷터/린터가 설정돼 있으면 커밋 전 실행. 설정 자체를 바꾸는 건 공동 영역.
 - 테스트는 있으면 실행하고, 없다고 새 테스트 프레임워크를 도입하지 않는다(해커톤이다).
