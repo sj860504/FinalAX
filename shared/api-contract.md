@@ -1,7 +1,7 @@
 # FinalAX API 계약
 
 > **이 문서가 진실이다.** 프론트는 이 문서만 보고 mock을 만들고, 백엔드는 이 문서대로만 응답한다.
-> 변경은 PR + 상대 승인. 변경 시 `frontend/src/types/api.ts`와 `backend/app/schemas/`를 같은 PR에서 고친다.
+> 변경은 `/contract-change`(PR + 상대 승인, 변경 노트 `changes/<slug>.<ts>.md`). 상대는 `/contract-sync` 로 반영.
 
 - Base URL: `http://localhost:8000` (프론트는 `VITE_API_BASE_URL` 사용)
 - 모든 요청/응답: `application/json`, UTF-8
